@@ -1,0 +1,617 @@
+#lang racket
+
+(require csc151)
+(require csc151/main)
+
+; This is zorkia, a framework for a classic text-rpg adventure game. This Project was completed by Howie Youngdahl, Minh Nguyen, Ethan Wills, and Henry Gold from
+; November 23th, 2021, to December 5th, 2021.
+; The purpose of this project was to tentatively explore game development, with scheme being the langugage. The game is navigated via cardinal directions,
+; along with prompts from puzzles. To start the game, please type (start start).
+; We've achieved a somewhat-working framework -> the movement design worked very well, as did the tile design. We encountered some errors trying to implement advanced concepts,
+; as expected. 
+; Enjoy.
+
+;;; player name
+(define name "")
+
+;;; player position
+(define pos '(0 0))
+
+;;; campaign tracker
+(define campaign-tracker 0)
+
+;;; (get-input prompt) -> string?
+;;; takes a prompt and returns user input
+(define get-input
+  (lambda (prompt)
+    (display prompt)
+    (read-line)))
+
+;;; this defines the tile-types hash
+(define tile-types (make-hash))
+
+;;; this adds the different types of tiles to the tile type hash
+(define instantiate-hash-tile-types
+  (begin (hash-set! tile-types '("field" (event-tile "field") #f "you see a grassy field" "You step into a field of rich green grass. \nThere are bright flowers as far as the eye can see. \nIt’s a relatively peaceful place, but you’re still uneasy. \nIn this place nothing is that simple.") '(1/2))
+         (hash-set! tile-types '("woods" (event-tile "woods") #f "you see thick woods" "As you cross the tree line, everything darkens.\nThe crowded canopy of trees completely blocks out the sun. \nThe constant sound of rustling trees and wildlife fills your ears, but you can’t shake an expectant stillness.\nYou find yourself holding your breath. Something is nearby, you can sense it.") '(1/10))
+         (hash-set! tile-types '("lake" (event-tile "lake") #f "You see a large body of water" "You walk up to the banks of a muddy lake.\n You can’t see the bottom through all the murk.\n Hopefully there’s nothing lurking just beneath the surface...") '(2/10))
+         (hash-set! tile-types '("cabin" (event-tile "cabin") #f "You see a silhouette of a cabin in the distance" "You cannot see any lights in the windows, and there is no smoke coming out of the chimney.\n You knock on the faded wooden door, and it promptly crumbles in front of you.\n You cautiously step over the threshold into the damp cabin.") '(1/10))
+         (hash-set! tile-types '("campaign-tile" campaign-tile-function #f campaign-tile-outer-description "") '(1/10))))
+
+;;; campaign-tile-outer-description
+(define campaign-tile-outer-description
+  (lambda ()
+    (cond [(equal? campaign-tracker 0) "On the horizon lies the infamous Lake Urodela.\n Legend tells of a massive serpent lurking in its depths.\n"]
+          [(equal? campaign-tracker 1) "There is a crossroads obscured by an ominous fog.\n You can barely see a figure leaning against a signpost.\n It’s definitely... unusual."]
+          [(equal? campaign-tracker 2) "you see a grassy field"]
+          [(equal? campaign-tracker 3) "There’s a small curio stand.\n A massive sign reads ‘The Magical Menagerie’.\n You wonder what a random merchant stand is doing in the middle of nowhere."]
+          [(equal? campaign-tracker 4) "A massive castle materializes in front of you.\n This is it. You’re finally at the end."])))
+
+;;; (serpent-fight) -> void?
+;;; Displays the event of serpent campaign fight.
+(define serpent-fight
+  (lambda ()
+    (let* ([monster-HP 1000]
+           [monster-ATK 2]
+           [hits-monster-die (ceiling (/ monster-HP (ATK)))]
+           [hits-player-die (ceiling (/ (HP) monster-ATK))]
+           [description (string-append "Initial stats: "
+                                       (stats-description)
+                                       "\nYou encounter the  Pleurodelinae, serpent of the lake, with: "
+                                       (number->string monster-HP)
+                                       " HP, "
+                                       (number->string monster-ATK)
+                                       " ATK. You fight.\n")])
+      (stats-change (- (* (- hits-monster-die 1) monster-ATK)) 0 0)
+      (if (> (HP) 0)
+          (display (string-append description
+                                  "It was a difficult battle, but you make it through with: "
+                                  (stats-description)
+                                  ". The serpent collapses to the ground, writhing in agony.\n At last, it stops moving, and a small glowing rock falls from its mouth.\n As you pick it up, Explicus’ voice echoes in your mind.\n You’ve found your first Magartifact!"))
+          (display (string-append description "HP reaches 0. "))))))
+
+;;; (campaign-0) -> string?
+;;; The first campaign event, the fight against the serpent.
+(define campaign-0
+  (lambda ()
+    (begin (display "You approach the lake.\n The surface begins to froth and the ground shakes.\n Suddenly, a massive serpent bursts forth from the lake with a bone chilling scream.\n You draw your sword.")
+           (serpent-fight) (set! campaign-tracker (+ campaign-tracker 1)))))
+
+;;; (campaign-1) -> string?
+;;; The second campaign event, Janus’ riddle
+(define campaign-1
+  (lambda ()
+    (let ([guess (get-input "As you approach the signpost, the fog begins to clear and you get a good look at the figure standing there.\n It appears to be a two-faced man in a suit and top hat.\n Both of his faces smile as you approach.\n His left face begins to speak. Well friend, I’ve heard you’re looking for the magartifacts.\n The other head chimes in.\n There’s one right down one of these paths, but you’ll have to figure out which.\n It’s simple really. We’ll alternate giving you hints. Left: Me, left, always tells the truth, while Right tends to lie.\n Right: Hey, I’m the one that always tells the truth, and you always lie.\n Left: Oh right, I had forgotten. It has been so long, you see. Anyways, it is not down the left path.\n Right: What?! Yes it is! It is down the left path!\n You pause in confusion.\n Left: Come on! You can trust me, for I always tell the truth, it is not down the right path.\n Right: Wait, I thought you just said it was down the left path? I was about to agree, for I believe it is down the left path.\n Left: Oh dear, have we forgotten where the stone is? Right, you are always confusing me with your constant fibbing! Well traveler, perhaps you can help us. Which path is the rock down?")]) 
+      (begin guess (cond [(equal? guess "left") (begin (display "Both heads speak in unison.\n Wrong path traveller! Here we shall repeat ourselves...\n") guess)]
+                         [(equal? guess "right") (begin (display "Both heads speak in unison.\n Wrong path traveller! Here we shall repeat ourselves...\n") guess)]
+                         [(equal? guess "neither") (display "Oh! That’s right!\n We kept it in our pocket for safekeeping.\n We BOTH lie. It has been so long traveller, we must sincerely apologize.\n Well, here it is.\n The two-faced man smiles and hands you another beautiful stone.\n You’ve obtained the second Magartifact!")]
+                         [else (begin (display "A direction traveller please! Either right or left or something!\n It has to be around here somewhere.\n Here we shall speak again.\n") guess)])) (set! campaign-tracker (+ campaign-tracker 1)))))
+
+; (campaign-2) -> string?
+; The event associated with the third campaign event
+(define campaign-2
+  (lambda ()
+    (begin (display "As you walk across yet another field, something catches your eye.\n It’s a particularly shiny rock.\n Wait a minute.\n It can’t be.\n It is.\n You have stumbled across the third magartifact...!") (set! campaign-tracker (+ campaign-tracker 1)))))
+
+; (campaign-3) -> string?
+; The event associated with the fourth campaign event
+(define campaign-3
+  (lambda ()
+    (begin (set! campaign-tracker (+ campaign-tracker 1))
+           (display "You approach the merchant.\n What’re ya lookin fer?\n Well, alls I got right now is this magic rock.\n Oh, ya want it?\n Well, sure! Fer the right price o’ course.\n Whattya say to twenty tokens?")
+           (if (>= (vector-ref stats 2) 30)
+               (begin (display "Wowza! Ya actually got the coin fer it!\n Well, here ya go! A deal’s a deal!\n You’ve obtained the fourth and final magartifact!!") (vector-set! stats 2 (- (vector-ref stats 2) 30)))
+               (display "You don’t have nearly enough tokens fer this beauty.\n Come back when yer pockets aren’t so light?")))))
+
+; (campaign-4) -> string?
+; The final confrontation
+(define campaign-4
+  (lambda ()
+    (begin (display "You enter the sinister palace, and make your way down a dark and foreboding hallway.\n At the end is a dimly lit throne room.\n To your surprise you see a familiar figure sitting on the throne.\n Well hello there, old friend. How kind of you to bring me back my stones.\n It’s Explicus MacGuffin, the friendly and memorable barkeep from the beginning of your journey!\n But he seems different.\n His eyes are hollow, and he holds a large scythe in his right hand.\n He stares down at you menacingly.\n Now give me my stones, and I will take my rightful place as emperor of all of Zorkia!\n You draw your sword; your heart broken with betrayal.\n Very well. Explicus sighs. I suppose I’ll have to destroy you myself.\n In a flash of horrid green light, Lord Explicus of the fell Macguffin clan, Lich King, Lord of the Underworld, surges from his throne and slashes at your throat.\n With tears in your eyes you call out to him.\n WAIT! It doesn’t have to be this way.\n He pauses.\n Just because you are a lich king and want to kill everyone doesn’t mean we have to fight to the death over some dumb rocks.\n Don’t you remember all the good times we had together.\n Like that one time at the carnival, where I won back all of your money from that twisted carny and his scam of a game.\n Or that other time we drank together and sang the Zorkia national anthem on your birthday.\n He lifts his scythe, but his hand wavers.\n NO! STOP! I am supposed to kill you and take my rightful place as king!\n You throw aside your sword and raise your arms in supplication. WHY CAN’T WE JUST BE FRIENDS INSTEAD!!!\n He lets out an agonized scream and collapses.\n You embrace your best friend.\n But, in your arms, he crumbles to bony dust.\n Not every story can have a happy ending.") (set! campaign-tracker (+ campaign-tracker 1)))))
+
+;;; campaign-tile-function
+(define campaign-tile-function
+  (lambda ()
+    (cond [(equal? campaign-tracker 0) (campaign-0)]
+          [(equal? campaign-tracker 1) (campaign-1)]
+          [(equal? campaign-tracker 2) (campaign-2)]
+          [(equal? campaign-tracker 3) (campaign-3)]
+          [(equal? campaign-tracker 4) (campaign-4)])))
+
+;;; defines the tiles hash
+(define tiles (make-hash))
+
+(hash-set! tiles '(0 0) '("field" (event-tile "field") #f "you see a grassy field" "You step into a field of rich green grass. \nThere are bright flowers as far as the eye can see. \nIt’s a relatively peaceful place, but you’re still uneasy. \nIn this place nothing is that simple."))
+
+;;; (make-tile pos info)
+;;;   pos : pair? (coordinates)
+;;;   info : list? (tile info)
+;;; creates a new tile in the tile hash
+(define make-tile!
+  (lambda (pos info)
+    (if (hash-has-key? tiles pos)
+        #f
+        (hash-set! tiles pos info))))
+
+;;; (tile-update pos) -> #void
+;;; pos -> position?
+;;; we expect pos to be coordinates in a list, ex '(1 2)
+;;; generates tiles in 4 cardinal directions around position pos
+(define tile-update
+  (lambda (pos)
+    (let* ([n (cons (car pos) (list (+ (cadr pos) 1)))]
+           [s (cons (car pos) (list (- (cadr pos) 1)))]
+           [e (cons (+ (car pos) 1) (cdr pos))]
+           [w (cons (- (car pos) 1) (cdr pos))])
+      (begin
+        (make-tile! n (random-tile-hash tile-types))
+        (make-tile! s (random-tile-hash tile-types))
+        (make-tile! e (random-tile-hash tile-types))
+        (make-tile! w (random-tile-hash tile-types))))))
+
+;;; (probabilistic-select-helper list rand pos start) -> void?
+;;;   list : list?
+;;;   rand : inexact-number?
+;;;   pos : number?
+;;;   start : number?
+;;; Iterative helper to probabilistic-select
+(define probabilistic-select-helper
+  (lambda (list rand pos start)
+    (let*((num (sub1 (length list)))
+          (x (list-ref list pos))
+          (end (+ start (car x))))
+      (if (= pos num)
+          (cdr x)
+          (if (<= start rand end)
+              (cdr x)
+              (probabilistic-select-helper list rand (+ 1 pos) end))))))
+
+;;; (probabilistic-select probability-table) -> void?
+;;;   probability-table : hash-table?
+;;; chooses a word based on probabilities
+(define random-tile-hash
+  (lambda (probability-table)
+    (let* ((rand (random))
+           (hash-key-list (hash-keys probability-table))
+           (probability-list (map (lambda (word) (cons (car (hash-ref probability-table word)) word)) hash-key-list))
+           (list-sorted (sort probability-list #:key car <)))
+      (probabilistic-select-helper list-sorted rand 0 0))))
+
+;;; (list-pos pos) -> string?
+;;; pos -> position?
+;;; returns string form of position
+(define (list-pos pos)
+  (string-append "(" (number->string (car pos)) " " (number->string (cadr pos)) ")"))
+
+;;; (mover direction pos) -> position?
+;;; direction -> cardinal direction?
+;;; pos -> coordinate point?
+;;; changes position based on cardinal input
+;;; returns new position.
+(define mover
+  (lambda (direction)
+    (let* ([n (list (list-ref pos 0) (+ 1 (list-ref pos 1)))]
+           [s (list (list-ref pos 0) (- (list-ref pos 1) 1))]
+           [e (list (+ 1 (list-ref pos 0)) (list-ref pos 1))]
+           [w (list (- (list-ref pos 0) 1) (list-ref pos 1))]
+           [dir (string-downcase direction)])
+      (begin 
+        (if (equal? dir "north")
+            (set! pos n)
+            (if (equal? dir "south")
+                (set! pos s)
+                (if (equal? dir "east")
+                    (set! pos e)
+                    (if (equal? dir "west")
+                        (set! pos w)
+                        #f))))
+        (newline)
+        (let ([newpos (string-append "Your new position is " (list-pos pos))])
+          newpos)))))
+
+;;; (make-string val) -> either string? or void?
+;;; val: any?
+;;; Displays corresponding event of `val`. If `val` is a string, returns `val`. 
+(define make-string
+  (lambda (val)
+    (if (string? val)
+        val
+        (cond [(equal? val 'campaign-tile-function) (campaign-tile-function)]
+              [(equal? val 'campaign-tile-outer-description) (campaign-tile-outer-description)]
+              [(equal? val '(event-tile "field")) (event-tile "field")]
+              [(equal? val '(event-tile "woods")) (event-tile "woods")]
+              [(equal? val '(event-tile "lake")) (event-tile "lake")]
+              [(equal? val '(event-tile "cabin")) (event-tile "cabin")]))))
+
+;;; (look-around pos) -> string?
+;;; pos : pair?
+;;; returns a string with descriptions of tiles in cardinal directions
+(define look-around
+  (lambda (pos)
+    (let ([north (list (list-ref pos 0) (+ 1 (list-ref pos 1)))]
+          [south (list (list-ref pos 0) (- (list-ref pos 1) 1))]
+          [east (list (+ 1 (list-ref pos 0)) (list-ref pos 1))]
+          [west (list (- (list-ref pos 0) 1) (list-ref pos 1))])
+      (newline)
+      (display (string-append "North: " (make-string (fourth (hash-ref tiles north)))))
+      (newline)
+      (display (string-append "South: " (make-string (fourth (hash-ref tiles south)))))
+      (newline)
+      (display (string-append "East: " (make-string (fourth (hash-ref tiles east)))))
+      (newline)
+      (display (string-append "West: " (make-string (fourth (hash-ref tiles west)))))
+      (newline))))
+
+;;; (response? prompt) -> boolean?
+;;; prompt: any?
+;;; Takes a prompt and returns user input. 
+(define response?
+  (lambda (prompt)
+    (display prompt)
+    (let ([answer (string-downcase (read-line))])
+      (cond [(equal? answer "yes") #t]
+            [(equal? answer "no") #f]
+            [else (response? "Please, respond using with yes or no")]))))
+
+;;; Player stats: HP, ATK, TOKENS
+(define stats
+  (make-vector 3 100))
+
+;;; (HP) -> number?
+;;; Returns player's current HP.
+(define HP
+  (lambda ()
+    (vector-ref stats 0)))
+
+;;; (ATK) -> number?
+;;; Returns player's current ATK.
+(define ATK
+  (lambda ()
+    (vector-ref stats 1)))
+
+;;; (TOKENS) -> number?
+;;; Returns player's current TOKENS.
+(define TOKENS
+  (lambda ()
+    (vector-ref stats 2)))
+
+;;; (stats-description) -> string?
+;;; Returns a string describing player's current stats.
+(define stats-description
+  (lambda ()
+    (string-append (number->string (HP))
+                   " HP, "
+                   (number->string (ATK))
+                   " ATK, "
+                   (number->string (TOKENS))
+                   " TOKENS")))
+
+;;; (attack) -> void?
+;;; Displays player’s initial stats, encountered monster’s stats, and the outcome after the fight. 
+(define attack
+  (lambda ()
+    (let* ([monster-HP (random 1 300)]
+           [monster-ATK (random 1 20)]
+           [hits-monster-die (ceiling (/ monster-HP (ATK)))]
+           [hits-player-die (ceiling (/ (HP) monster-ATK))]
+           [description (string-append "Initial stats: "
+                                       (stats-description)
+                                       "\nYou encounter a monster with: "
+                                       (number->string monster-HP)
+                                       " HP, "
+                                       (number->string monster-ATK)
+                                       " ATK. You fight.\n")])
+      (stats-change (- (* (- hits-monster-die 1) monster-ATK)) 0 0)
+      (if (> (HP) 0)
+          (display (string-append description
+                                  "Current stats: "
+                                  (stats-description)))
+          (display (string-append description "HP reaches 0. Game over!"))))))
+
+;;; (password? val) -> void?
+;;; val: any?
+;;; Displays the outcome of a password guessing attempt.
+(define password?
+  (lambda (val)
+    (let ([initial-stats-description stats-description])
+      (vector-set! stats 2 (- (TOKENS) 2))
+      (if (and (exact-integer? val)
+               (equal? val 1140))
+          (display (string-append "Initial stats: "
+                                  initial-stats-description
+                                  "\nYou cracked the password!\nCurrent stats: "
+                                  (stats-description)))
+          (display (string-append "Initial stats: "
+                                  initial-stats-description
+                                  "\nWRONG! You have one job! Only. One. Job!\nJust enter four numbers. There should be zero difficulties.\nCurrent stats: "
+                                  (stats-description)))))))
+
+;;; (cleared-tile tile-type) -> void?
+;;; Displays cleared description of the given `tile-type`.
+(define cleared-tile
+  (lambda (tile-type)
+    (cond [(equal? (car (hash-ref tiles pos)) "woods") (woods-cleared)]
+          [(equal? (car (hash-ref tiles pos)) "lake") (lake-cleared)]
+          [(equal? (car (hash-ref tiles pos)) "field") (field-cleared)]
+          [(equal? (car (hash-ref tiles pos)) "cabin") (cabin-cleared)])))
+
+;;; (woods-cleared) -> void?
+;;; Display cleared description of woods.
+(define woods-cleared
+  (lambda ()
+    (display "While before these trees seemed claustrophobic and unnerving, now you are just grateful for the familiar terrain.\n You’ve already been to this neck of the woods.")))
+
+; (lake-cleared) -> string?
+; calls cleared description of lake
+(define lake-cleared
+  (lambda ()
+    (display  "You rest a moment by the lake, pondering the quiet ripples of fish below the surface, before journeying onwards.\n You have been to this lake before.")))
+
+;;; (field-cleared) -> void?
+;;; Displays cleared description of field.
+(define field-cleared
+  (lambda ()
+    (display "The clear air here is refreshing.\n You take a moment to stop and smell the flowers before continuing on your quest.\n This field has already been cleared.")))
+
+;;; (cabin-cleared) -> void?
+;;; Displays cleared description of cabin.
+(define cabin-cleared
+  (lambda ()
+    (display  "Somehow even this rotting cabin is comforting.\n This cabin is secure. You’re safe for now.")))
+
+;;; (event-tile tile-type) -> void?
+;;; Displays the random event of given `tile-type`.
+(define event-tile
+  (lambda (tile-type)
+    (let ([chosen-event-value (random 20)])
+      (cond [(<= chosen-event-value 4) (unique-event tile-type)]
+            [(<= chosen-event-value 8) (bad-event tile-type)]
+            [(<= chosen-event-value 10) (shop-tile)]
+            [(<= chosen-event-value 12) (attack)]
+            [else (good-event tile-type)]))))
+
+;;; (good-event tile-type) -> void?
+;;; Displays the good event of given `tile-type`.
+(define good-event
+  (lambda (tile-type)
+    (cond [(equal? (car (hash-ref tiles pos)) "woods") (woods-good-event)]
+          [(equal? (car (hash-ref tiles pos)) "lake") (lake-good-event)]
+          [(equal? (car (hash-ref tiles pos)) "field") (field-good-event)]
+          [(equal? (car (hash-ref tiles pos)) "cabin") (cabin-good-event)])))
+
+;;; (woods-good-event) -> void?
+;;; Display the woods good event.
+(define woods-good-event
+  (lambda ()
+    (let ([chosen-hp (random 10 50)])
+      (begin (display (string-append "Suddenly a dough deer bursts from the trees.\n Their meat is well known to have healing properties, and, acting quickly,\n you manage to throw your sword into its side as it tries to run.\n You’re feasting well tonight! You regain " (number->string chosen-hp) " hp!"))
+             (stats-change chosen-hp 0 0)))))
+
+;;; (lake-good-event) -> void?
+;;; Displays the lake good event.
+(define lake-good-event
+  (lambda ()
+    (begin (display (string-append "You see a faint glow from the middle of the lake, and a beautiful maenad bursts from the water.\n You kneel in reverence to the divine spirit, and you feel a calming magic reinvigorate your limbs.\n The blessing of the maenad fully restores your hp!"))
+           (stats-change 50 0 0))))
+
+;;; (field-good-event) -> void?
+;;; Displays the field good event.
+(define field-good-event
+  (lambda ()
+    (let ([chosen-hp (random 1 5)])
+      (begin (display (string-append "The field is full of flowers and dandelions.\n As is customary for your people you pluck a dandelion and blow off the seeds, making a wish.\n You feel refreshed! Seems the gods are on your side today!\n You restore " (number->string chosen-hp) " hp!"))
+             (stats-change chosen-hp 0 0)))))
+
+;;; (cabin-good-event) -> void?
+;;; Displays a cabin good event.
+(define cabin-good-event
+  (lambda ()
+    (let ([chosen-hp (random 20 30)])
+      (begin (display (string-append "Inside the dim house there is a dining table overflowing with food.\n No one seems to be home, and the charred husk of a body on the floor seems to imply no one will be coming home anytime soon...\n You completely stuff yourself, restoring " (number->string chosen-hp) " hp!"))
+             (stats-change chosen-hp 0 0)))))
+
+;;; (bad-event tile-type) -> void?
+;;; Displays the bad event of given `tile-type`.
+(define bad-event
+  (lambda (tile-type)
+    (cond [(equal? (car (hash-ref tiles pos)) "woods") (woods-bad-event)]
+          [(equal? (car (hash-ref tiles pos)) "lake") (lake-bad-event)]
+          [(equal? (car (hash-ref tiles pos)) "field") (field-bad-event)]
+          [(equal? (car (hash-ref tiles pos)) "cabin") (cabin-bad-event)])))
+
+;;; (woods-bad-event) -> void?
+;;; Displays the woods bad event.
+(define woods-bad-event
+  (lambda ()
+    (let ([chosen-hp (random 10 12)])
+      (begin (display (string-append "You carefully pick your way through the trees, but suddenly, your foot catches on something.\n You fall face first into a sticky white web.\n You hear a deafening scuttling behind you, but the web is too strong for you to see what it is.\n You feel a million tiny legs crawling up and down your flesh, biting every inch of exposed skin.\n In one last desperate attempt, you manage to to flail your sword into the web, cutting your arm free.\n You free yourself as fast as possible, but the spiders have done their damage.\n You lost " (number->string chosen-hp) " hp."))
+             (stats-change (- chosen-hp) 0 0)))))
+
+;;; (lake-bad-event) -> void?
+;;; Displays the lake bad event.
+(define lake-bad-event
+  (lambda ()
+    (let ([chosen-hp (random 20 30)])
+      (begin (display (string-append "You’ve been travelling for quite a while, with no supplies except your sword.\n Although you can barely see to its bottom, you decide to take the plunge and quench your thirst.\n Mistake.\n It doesn’t go down like water, more like a stew of fantastical and, unfortunately, magical aquatic parasites.\n The parasites of the lake drain " (number->string chosen-hp) " hp."))
+             (stats-change (- chosen-hp) 0 0)))))
+
+;;; (field-bad-event) -> void?
+;;; Displays the field bad event.
+(define field-bad-event
+  (lambda ()
+    (begin (display  "This field is so sunny and beautiful,\n you decide to pause your dragon-hunting journey and take a nap.\n You wake up a few hours later somehow even more tired than when you fell asleep.\n As you pull yourself to your feet, you feel the blades of grass you were resting on pull out from your back.\n Typical. Carnivorous grass.\n That sapped half your hp.")
+           (stats-change (- (/ (HP) 2)) 0 0))))
+
+;;; (cabin-bad-event) -> void?
+;;; Displays the bad cabin event.
+(define cabin-bad-event
+  (lambda ()
+    (begin (display (string-append "As the door creaks open, you feel a wave of anxiety.\n You wonder why this seemingly normal abode was left abandoned.\n That’s when you start to hear the voices. Scratchy, hissing, terrible voices.\n You break into a cold sweat and turn to escape out the door.\n But the door is gone. Panicked you try to think of something as the voices close in.\n But it’s no use. You squeeze your eyes shut, screaming in tandem with the angry spirits of the cabin.\n At last, you open your eyes to find yourself alone in an empty field, no cabin in sight.\n You feel horrible. Almost all of your hp is gone!"))
+           (stats-change -35 0 0))))
+
+;;; (unique-event tile-type) -> void?
+;;; Displays the unique event of the given `tile-type`.
+(define unique-event
+  (lambda (tile-type)
+    (cond [(equal? (car (hash-ref tiles pos)) "woods") (woods-unique-event)]
+          [(equal? (car (hash-ref tiles pos)) "lake") (lake-unique-event)]
+          [(equal? (car (hash-ref tiles pos)) "field") (field-unique-event)]
+          [(equal? (car (hash-ref tiles pos)) "cabin") (cabin-unique-event)])))
+
+;;; (woods-unique-event) -> void?
+;;; Displays the unique woods event.
+(define woods-unique-event
+  (lambda ()
+    (begin (if (response? "You come to a small clearing.\n There’s a large tree lush in vibrant, differently colored fruits.\n They don’t look too dangerous.\n Probably.\n Do you want to eat a fruit? |yes or no|")
+               (if (response? "You step up to the tree and look over your options.\n There are a few fruit close to the ground, but the ripest seem to be up in the highest branches.\n Do you want to risk the climb for those tastier fruit?")
+                   (if (response? "Very carefully you scale the tree.\n It’s rough going, but surely the fruit at the top will be worth it.\n At last you reach the branches at the very top.\n There’s an acrid, green fruit that almost seems to be smoking, and a slightly more appealing glowing, warm, red fruit.\n Maybe you should take the red one?")
+                       (begin (display "You take a confident bite of the red fruit, and immediately your mouth catches on fire.\n You spit it out, but in your panic you lose your balance and plummet towards the ground.\n The fall isn’t too far, and you stagger away from the tree with a burning mouth and a sore back.") (vector-set! stats 0 (- (vector-ref stats 0) 30)))
+                       (begin (display "Cautiously you pluck the green fruit and take a tentative bite.\n It’s certainly sour, but it’s actually pretty delicious.\n As you happily eat around the core you feel yourself getting stronger.\n You drop back to the ground revitalized, and maybe even stronger than before.") (vector-set! stats 0 (+ (vector-ref stats 0) 75))))
+                   (if (response? "You decide not to climb and look closer at the fruits you can reach.\n There’s a rather sickly looking yellow fruit and an otherworldly purple fruit.\n Neither look particularly appealing, but the yellow one is closer.\n Do you take the yellow fruit?")
+                       (begin (display "You reluctantly take the yellow fruit and take a bite.\n It’s a little grainy, but it’s not too bad.\n You walk away unsatisfied, but unscathed.") (vector-set! stats 0 (+ (vector-ref stats 0) 5)))
+                       (display "Instead you reach for the purple one.\n As you bite into it, your head swims a little.\n You blink a few times and shake off the nausea.\n You drop the half-eaten fruit and walk off.\n You suppose it could have been worse.")))
+               (display "Better safe than sorry.\n You walk right past the tree and off into the woods with a pit of regret in your empty stomach.")))))
+
+
+;;; (lake-unique-event) -> void?
+;;; Displays the lake unique event.
+(define lake-unique-event
+  (lambda ()
+    (begin (if (response? "You see a lot of movement beneath the water and decide it might be a good fishing spot.\n You take out your sword, cut a vine  next to you.\n Then you sheathe your sword and tie the vine around it, then tie a small berry to the end as bait.\n You are confident it’ll serve your purposes, and cast the makeshift line into the water.\n You get a bite, and pull up a puny fish.\n Maybe you could keep it on the line and get a bigger fish.\n Do you want to risk it? |yes or no|")
+               (if (response? "You cast the line back into the water.\n A long, arduous hour later, you finally get another tug on the vine.\n It doesn’t feel that big, but...\n you’re already in this deep, might as well let it ride even more right?")
+                   (if (response? "Many, many hours later you finally get another tug.\n It almost pulls you into the water, but you brace yourself, and begin to pull it in.\n Or... maybe you could... push your luck even further?\n You see a big ripple in the water coming right for your hook.\n If you can just hold out a little longer...\n Do you push your luck even further...?")
+                       (begin (display "As the ripple reaches your line, you feel another, massive tug.\n You almost lose your only weapon to the murky lake.\n But you manage to dig in your heels and heave the.. whatever it is, onto land.\n A massive, slimy, venomous serpent flops onto the shore.\n It hisses at you, and attempts to writhe back into the water.\n Deftly you unwind your scabbard and stab your sword into its skull.\n The venom from its fangs will make your sword much stronger.\n The twelve hours you spent standing there were definitely worth it.") (vector-set! stats 1 (+ (vector-ref stats 1) 10)))
+                       (display "You attempt to pull in your catch, but the ripple gets there first.\n You strain against the new weight, and the vine snaps.\n You fall backward, and lie on the ground in regret for a few minutes.\n At last you get up and walk off.\n Ten hours well spent."))
+                   (begin (display "No, you’re right, better safe than sorry.\n You tug up what’s on the line to reveal a modestly sized fish.\n It’ll make a nice dinner. You start a small cooking fire and roast the fish over it.\n It’s surprisingly filling. You feel refreshed and revitalized.") (vector-set! stats 0 (+ (vector-ref stats 0) 25))))
+               (display "You pull the small fish off the line and pause.\n What exactly are you supposed to do with this?\n You decide you could eat it?\n You filet it, and manage to burn the pathetic singular bite of meat.\n Well, that wasn’t worth it at all.")))))
+
+;;; (field-unique-event) -> void?
+;;; Displays the field unique event.
+(define field-unique-event
+  (lambda ()
+    (let ([goblin-intro (display "As you cross the field, a small, green goblin appears in front of you.\n He lets out a cackle, rubbing his hands together.\n Wanna have a little... battle of wits?\n Well, not that you have a say in the matter.\n")]
+          [goblin-riddle (get-input "Ohohoho! You’ll never guess it, no one ever has.\n What does man love more than life, hate more than death or mortal strife;\n that which contented men desire; the poor have, the rich require;\n the miser spends, the spendthrift saves,\n and all men carry to their graves?")])          
+      (begin goblin-intro
+             (if (equal? goblin-riddle "nothing")
+                 (begin (display "Well done! Well done!\n I thought you were another foolish hero, but you actually have a bit of a brain.\n Well, I’m a goblin of my word. Here, buy yourself something special.\n With that, the goblin vanishes. Your pockets feel heavy with gold.")
+                        (stats-change 0 0 (TOKENS)))
+                 (begin (display "What a disappointment!\n To be honest I expected more from you.\n Ah well, I’ll just take my fee and be on my way.")
+                        (stats-change 0 0 -25)))))))
+
+;;; (stats-change num1 num2 num3) -> void?
+;;; num1: number?
+;;; num2: number?
+;;; num3: number?
+;;; Increases stats by num1 HP, num2 ATK, and num3 TOKENS.
+(define stats-change
+  (lambda (num1 num2 num3)
+    (vector-set! stats 0 (+ (HP) num1))
+    (vector-set! stats 1 (+ (ATK) num2))
+    (vector-set! stats 2 (+ (TOKENS) num3))))
+
+
+;;; (trade-TOKENS val) -> void?
+;;; val: any?
+;;; Changes stats by deducting tokens in exchange for gaining HP and/or ATK. Displays the outcome.
+(define trade-TOKENS
+  (lambda (val)
+    (let ([initial-stats-description (stats-description)])
+      (cond [(equal? val "HP")
+             (begin (stats-change 10 0 -20)
+                    (display (string-append "Initial stats: "
+                                            initial-stats-description
+                                            "\nYou traded 20 TOKENS for 10 HP.\nCurrent stats: "
+                                            (stats-description))))]
+            [(equal? val "ATK")
+             (begin (stats-change 0 10 -20)
+                    (display (string-append "Initial stats: "
+                                            initial-stats-description
+                                            "\nYou traded 20 TOKENS for 10 ATK.\nCurrent stats: "
+                                            (stats-description))))]
+            [(equal? val "Both")
+             (begin (stats-change 5 5 -20)
+                    (display (string-append "Initial stats: "
+                                            initial-stats-description
+                                            "\nYou traded 20 TOKENS for 5 HP and 5 ATK.\nCurrent stats: "
+                                            (stats-description))))]))))
+  
+;;; (shop-tile) -> void?
+;;; Calls trade-TOKENS with input from player.
+(define shop-tile
+  (lambda ()
+    (let ([shop-decision (get-input "You come across a shop. A boisterous merchant greets you.\n We got everything you could need!\n Health, Strength, or maybe a little of both!\n |input HP for HP, ATK for ATK, or Both for a little of both|")])
+      (trade-TOKENS shop-decision))))
+
+;;; (cabin-unique-event) -> void?
+;;; Displays a cabin unique event.
+(define cabin-unique-event
+  (lambda ()
+    (display "You step into the dark cabin, there is a staircase that goes to the cellar, there is also a door to the kitchen\n Would you like to go to the cellar or kitchen?\n (respond with cellar or kitchen)")
+    (let ((input (get-input "cellar/kitchen: ")))
+      (cond [(equal? "cellar" input) (begin (display "you find lots of yummy food, and gain health") (vector-set! stats 0 (+ (vector-ref stats 0) 30)))]
+            [(equal? "kitchen" input) (begin (display "you slip on the ground and hit your head")(vector-set! stats 0 (- (vector-ref stats 0) 30)) )]
+            [else (display "You couldn't make up your mind. You stumble around in the dark briefly before deciding to leave.")]))))
+
+;;; The narratives
+(define main-story-intro-part-1  "
+
+         You open your eyes to a sky filled with smoke.
+         Groggily, you sit up and look around to see your hometown in flames.
+         As you get your bearings you recognize a bearded man calmly cleaning a mug. He glances over to you then looks back to his mug.
+         A gruff voice rumbles out from under his beard.
+         Oh, yer finally awake.
+         Don’t you recognize me? It’s me, Explicus MacGuffin, yer old friend and barkeep.
+         That blasted dragon incinerated the whole town and you just collapsed. From the smoke or the drink I couldn’t tell ya.")
+(define main-story-intro-part-2 "
+         Took out me whole bar too. And all me customers.
+         ...\n
+         Ye always were the adventurous type lad. Why don’tcha get out there and kill yerself a dragon.
+         Well, o course it’s got one o them magic barriers that prevents anyone from finding its lair, much less kill the beast.
+         You’ll need the 9 er... magartifacts to break it.
+         Where are they? How should I know? Just wander round. Yer sure to find one of em eventually.
+         One last thing. Ye can move around by shouting one o’ the cardinal directions out into the void.
+         Y’know: North, South, East, and West.
+         Good luck lad. Yer gonna need it.")
+
+;;; (run-tile-function) -> void?
+;;; Displays the outcome when moving to a new tile.
+(define run-tile-function
+  (lambda ()
+    (display (make-string (fifth (hash-ref tiles pos))))
+    (newline)
+    (make-string (second (hash-ref tiles pos)))
+    ""))
+
+;;; (game-loop running) -> void?
+;;; running: boolean?
+;;; Displays game over message when HP reaches 0. Otherwise, proceeds with the game. 
+(define game-loop
+  (lambda (running)
+    (if running
+        (begin
+          (tile-update pos)
+          (newline)
+          (display (stats-description))
+          (newline)
+          (look-around pos)
+          (display (mover (get-input " What direction would you like to go? ")))
+          (newline)
+          (display (run-tile-function))
+          (if (or (equal? campaign-tracker 5) (<= (vector-ref stats 0) 0))
+              (game-loop #f)
+              (game-loop #t)))
+        (display "Game over. Thanks for Playing"))))
+
+;;; (start) -> void?
+;;; Displays the starting narrative of the game.
+(define start
+  (lambda ()
+    (begin
+      (display "Welcome to Zorkia!, please choose ")
+      (let ([l-name (get-input "name!")])
+        (set! name l-name)
+        instantiate-hash-tile-types
+        (display (string-append "Welcome to Zorkia, " name " !")) 
+        (display main-story-intro-part-1)
+        (display main-story-intro-part-2)
+        (game-loop #t)))))
